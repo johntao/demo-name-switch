@@ -19,10 +19,22 @@
     .grid {
       flex: 1;
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      grid-template-rows: repeat(5, 1fr);
       gap: 4px;
       padding: 4px;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(6, 1fr);
+    }
+    @media (orientation: landscape) {
+      .grid {
+        grid-template-columns: repeat(6, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+      }
+    }
+    @media (min-width: 768px) {
+      .grid {
+        grid-template-columns: repeat(5, 1fr);
+        grid-template-rows: repeat(5, 1fr);
+      }
     }
     .cell {
       border: 1px solid #ccc;
@@ -32,7 +44,6 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
       user-select: none;
       cursor: pointer;
       padding: 4px;
@@ -42,8 +53,12 @@
       overflow: hidden;
     }
     .cell.on { background: #c8e6c9; border-color: #4caf50; }
-    .cell .name { font-weight: 500; margin-bottom: 4px; word-break: break-word; }
-    .cell .status { font-size: 11px; color: #888; font-weight: 600; letter-spacing: .5px; }
+    .cell .name { font-weight: 500; margin-bottom: 4px; word-break: break-word; font-size: 1.3rem; }
+    .cell .status { color: #888; font-weight: 600; letter-spacing: .5px; font-size: 1rem; }
+    @media (min-width: 768px) {
+      .cell .name { font-size: 1.5rem; }
+      .cell .status { font-size: 1.2rem; }
+    }
     .cell.on .status { color: #2e7d32; }
     .cell.empty {
       border: 1px dashed #e0e0e0;
@@ -63,26 +78,40 @@
     function render() {
       const unlocked = location.hash === SECRET;
       document.body.classList.toggle('unlocked', unlocked);
-      if (unlocked && !grid.dataset.built) buildGrid();
+      if (unlocked) buildGrid();
     }
 
     const names = ["順利", "宗佑", "書聿", "宸賓", "政儒", "宥呈", "慈憶", "庚翰", "股中", "Leo", "玉莉", "敬耀", "翊誠", "俞萱", "柏亦", "長緯", "綸紳", "珮綺", "冀昕", "怡秀", "堯堯", "季橫", "維忠"];
+    const states = new Array(names.length).fill(false);
     const grid = document.getElementById('grid');
 
+    function cellCount() {
+      if (window.matchMedia('(min-width: 768px)').matches) return 25;
+      return 24;
+    }
+
     function buildGrid() {
-      for (let i = 0; i < 25; i++) {
+      const total = cellCount();
+      if (grid.childElementCount === total) return;
+      grid.innerHTML = '';
+      for (let i = 0; i < total; i++) {
         const cell = document.createElement('div');
         if (i < names.length) {
-          cell.className = 'cell';
-          cell.dataset.on = 'false';
-          cell.innerHTML = `<div class="name">${names[i]}</div><div class="status">OFF</div>`;
+          const on = states[i];
+          cell.className = 'cell' + (on ? ' on' : '');
+          cell.dataset.on = on ? 'true' : 'false';
+          cell.dataset.idx = i;
+          cell.innerHTML = `<div class="name">${names[i]}</div><div class="status">${on ? 'ON' : 'OFF'}</div>`;
         } else {
           cell.className = 'cell empty';
         }
         grid.appendChild(cell);
       }
-      grid.dataset.built = '1';
     }
+
+    window.addEventListener('resize', () => {
+      if (document.body.classList.contains('unlocked')) buildGrid();
+    });
 
     let dragging = false;
     let targetState = null;
@@ -95,6 +124,8 @@
       cell.dataset.on = on ? 'true' : 'false';
       cell.classList.toggle('on', on);
       cell.querySelector('.status').textContent = on ? 'ON' : 'OFF';
+      const idx = Number(cell.dataset.idx);
+      if (!Number.isNaN(idx)) states[idx] = !!on;
     }
 
     function cellAt(x, y) {
