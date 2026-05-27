@@ -3,17 +3,160 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>點名小幫手</title>
+  <link rel="stylesheet" href="main.css">
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #fafafa;
+      display: flex;
+      touch-action: none;
+    }
+    #app { display: none; flex: 1; }
+    body.unlocked #app { display: flex; }
+    .grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(5, 1fr);
+      gap: 4px;
+      padding: 4px;
+    }
+    .cell {
+      border: 1px solid #ccc;
+      background: #fff;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      user-select: none;
+      cursor: pointer;
+      padding: 4px;
+      text-align: center;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .cell.on { background: #c8e6c9; border-color: #4caf50; }
+    .cell .name { font-weight: 500; margin-bottom: 4px; word-break: break-word; }
+    .cell .status { font-size: 11px; color: #888; font-weight: 600; letter-spacing: .5px; }
+    .cell.on .status { color: #2e7d32; }
+    .cell.empty {
+      border: 1px dashed #e0e0e0;
+      background: transparent;
+      pointer-events: none;
+    }
+    #qq { position: fixed; bottom: 0; right: 0; }
+  </style>
 </head>
 
 <body>
-  拖拉這個連結到書籤列
-  <a
-    href="data:text/html;charset=utf-8;base64,PCFkb2N0eXBlaHRtbD48aHRtbCBsYW5nPWVuPjxtZXRhIGNoYXJzZXQ9dXRmLTg+PG1ldGEgY29udGVudD0id2lkdGg9ZGV2aWNlLXdpZHRoLGluaXRpYWwtc2NhbGU9MSx1c2VyLXNjYWxhYmxlPW5vIm5hbWU9dmlld3BvcnQ+PHRpdGxlPlN0YXR1cyBHcmlkPC90aXRsZT48c3R5bGU+Kntib3gtc2l6aW5nOmJvcmRlci1ib3g7LXdlYmtpdC10YXAtaGlnaGxpZ2h0LWNvbG9yOnRyYW5zcGFyZW50fWJvZHksaHRtbHt3aWR0aDoxMDAlO2hlaWdodDoxMDAlO21hcmdpbjowO292ZXJmbG93OmhpZGRlbn1ib2R5e2ZvbnQtZmFtaWx5OnN5c3RlbS11aSwtYXBwbGUtc3lzdGVtLHNhbnMtc2VyaWY7YmFja2dyb3VuZDojZmFmYWZhO2Rpc3BsYXk6ZmxleDt0b3VjaC1hY3Rpb246bm9uZX0uZ3JpZHtmbGV4OjE7ZGlzcGxheTpncmlkO2dyaWQtdGVtcGxhdGUtY29sdW1uczpyZXBlYXQoNSwxZnIpO2dyaWQtdGVtcGxhdGUtcm93czpyZXBlYXQoNSwxZnIpO2dhcDo0cHg7cGFkZGluZzo0cHh9LmNlbGx7Ym9yZGVyOjFweCBzb2xpZCAjY2NjO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcmFkaXVzOjZweDtkaXNwbGF5OmZsZXg7ZmxleC1kaXJlY3Rpb246Y29sdW1uO2FsaWduLWl0ZW1zOmNlbnRlcjtqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyO2ZvbnQtc2l6ZToxM3B4O3VzZXItc2VsZWN0Om5vbmU7Y3Vyc29yOnBvaW50ZXI7cGFkZGluZzo0cHg7dGV4dC1hbGlnbjpjZW50ZXI7bWluLXdpZHRoOjA7bWluLWhlaWdodDowO292ZXJmbG93OmhpZGRlbn0uY2VsbC5vbntiYWNrZ3JvdW5kOiNjOGU2Yzk7Ym9yZGVyLWNvbG9yOiM0Y2FmNTB9LmNlbGwgLm5hbWV7Zm9udC13ZWlnaHQ6NTAwO21hcmdpbi1ib3R0b206NHB4O3dvcmQtYnJlYWs6YnJlYWstd29yZH0uY2VsbCAuc3RhdHVze2ZvbnQtc2l6ZToxMXB4O2NvbG9yOiM4ODg7Zm9udC13ZWlnaHQ6NjAwO2xldHRlci1zcGFjaW5nOi41cHh9LmNlbGwub24gLnN0YXR1c3tjb2xvcjojMmU3ZDMyfS5jZWxsLmVtcHR5e2JvcmRlcjoxcHggZGFzaGVkICNlMGUwZTA7YmFja2dyb3VuZDowIDA7cG9pbnRlci1ldmVudHM6bm9uZX08L3N0eWxlPjxkaXYgY2xhc3M9Z3JpZCBpZD1ncmlkPjwvZGl2PjxzY3JpcHQ+Y29uc3QgbmFtZXM9WyLpoIbliKkiLCLlrpfkvZEiLCLmm7jogb8iLCLlrrjos5MiLCLmlL/lhJIiLCLlrqXlkYgiLCLmhYjmhrYiLCLluprnv7AiLCLogqHkuK0iLCJMZW8iLCLnjonojokiLCLmlazogIAiLCLnv4roqqAiLCLkv57okLEiLCLmn4/kuqYiLCLplbfnt68iLCLntrjntLMiLCLnj67ntroiLCLlhoDmmJUiLCLmgKHnp4AiLCLloK/loK8iLCLlraPmqasiLCLntq3lv6AiXSxncmlkPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJncmlkIik7Zm9yKGxldCBlPTA7ZTwyNTtlKyspe2NvbnN0IGI9ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgiZGl2Iik7ZTxuYW1lcy5sZW5ndGg/KGIuY2xhc3NOYW1lPSJjZWxsIixiLmRhdGFzZXQub249ImZhbHNlIixiLmlubmVySFRNTD1gPGRpdiBjbGFzcz0ibmFtZSI+JHtuYW1lc1tlXX08L2Rpdj48ZGl2IGNsYXNzPSJzdGF0dXMiPk9GRjwvZGl2PmApOmIuY2xhc3NOYW1lPSJjZWxsIGVtcHR5IixncmlkLmFwcGVuZENoaWxkKGIpfWxldCBkcmFnZ2luZz0hMSx0YXJnZXRTdGF0ZT1udWxsO2NvbnN0IHBhdGg9W10sb3JpZ2luYWxzPW5ldyBNYXA7bGV0IGxhc3RDZWxsPW51bGw7ZnVuY3Rpb24gc2V0Q2VsbChlLHQpe2UmJiFlLmNsYXNzTGlzdC5jb250YWlucygiZW1wdHkiKSYmKGUuZGF0YXNldC5vbj10PyJ0cnVlIjoiZmFsc2UiLGUuY2xhc3NMaXN0LnRvZ2dsZSgib24iLHQpLGUucXVlcnlTZWxlY3RvcigiLnN0YXR1cyIpLnRleHRDb250ZW50PXQ/Ik9OIjoiT0ZGIil9ZnVuY3Rpb24gY2VsbEF0KGUsdCl7Y29uc3Qgbj1kb2N1bWVudC5lbGVtZW50RnJvbVBvaW50KGUsdCk7aWYoIW4pcmV0dXJuIG51bGw7Y29uc3QgbD1uLmNsb3Nlc3QoIi5jZWxsIik7cmV0dXJuIWx8fGwuY2xhc3NMaXN0LmNvbnRhaW5zKCJlbXB0eSIpP251bGw6bH1mdW5jdGlvbiBlbnRlckNlbGwoZSl7aWYoZSE9PWxhc3RDZWxsKXt2YXIgdD1wYXRoLmluZGV4T2YoZSk7aWYoMDw9dCl7Zm9yKGxldCBlPXBhdGgubGVuZ3RoLTE7ZT49dDtlLS0pe3ZhciBuPXBhdGhbZV07c2V0Q2VsbChuLG9yaWdpbmFscy5nZXQobikpLG9yaWdpbmFscy5kZWxldGUobil9cGF0aC5sZW5ndGg9dH1lbHNlIG9yaWdpbmFscy5zZXQoZSwidHJ1ZSI9PT1lLmRhdGFzZXQub24pLHNldENlbGwoZSx0YXJnZXRTdGF0ZSkscGF0aC5wdXNoKGUpO2xhc3RDZWxsPWV9fWZ1bmN0aW9uIG9uU3RhcnQoZSx0KXt0PWNlbGxBdChlLHQpO3QmJihkcmFnZ2luZz0hMCx0YXJnZXRTdGF0ZT0idHJ1ZSIhPT10LmRhdGFzZXQub24scGF0aC5sZW5ndGg9MCxvcmlnaW5hbHMuY2xlYXIoKSxsYXN0Q2VsbD1udWxsLGVudGVyQ2VsbCh0KSl9ZnVuY3Rpb24gb25Nb3ZlKGUsdCl7IWRyYWdnaW5nfHwodD1jZWxsQXQoZSx0KSkmJmVudGVyQ2VsbCh0KX1mdW5jdGlvbiBvbkVuZCgpe2RyYWdnaW5nPSExLHRhcmdldFN0YXRlPW51bGwscGF0aC5sZW5ndGg9MCxvcmlnaW5hbHMuY2xlYXIoKSxsYXN0Q2VsbD1udWxsfWdyaWQuYWRkRXZlbnRMaXN0ZW5lcigicG9pbnRlcmRvd24iLGU9PntlLnByZXZlbnREZWZhdWx0KCksb25TdGFydChlLmNsaWVudFgsZS5jbGllbnRZKX0pLGRvY3VtZW50LmFkZEV2ZW50TGlzdGVuZXIoInBvaW50ZXJtb3ZlIixlPT57ZHJhZ2dpbmcmJm9uTW92ZShlLmNsaWVudFgsZS5jbGllbnRZKX0pLGRvY3VtZW50LmFkZEV2ZW50TGlzdGVuZXIoInBvaW50ZXJ1cCIsb25FbmQpLGRvY3VtZW50LmFkZEV2ZW50TGlzdGVuZXIoInBvaW50ZXJjYW5jZWwiLG9uRW5kKTwvc2NyaXB0Pg==">
-    點名小幫手
-  </a>
-  <div id="qq" style="position: fixed;bottom: 0;right: 0;">v26.5.21</div>
+  <div id="app"><div class="grid" id="grid"></div></div>
+  <div id="qq">v26.5.21</div>
+  <script>
+    const SECRET = '#9527';
+
+    function render() {
+      const unlocked = location.hash === SECRET;
+      document.body.classList.toggle('unlocked', unlocked);
+      if (unlocked && !grid.dataset.built) buildGrid();
+    }
+
+    const names = ["順利", "宗佑", "書聿", "宸賓", "政儒", "宥呈", "慈憶", "庚翰", "股中", "Leo", "玉莉", "敬耀", "翊誠", "俞萱", "柏亦", "長緯", "綸紳", "珮綺", "冀昕", "怡秀", "堯堯", "季橫", "維忠"];
+    const grid = document.getElementById('grid');
+
+    function buildGrid() {
+      for (let i = 0; i < 25; i++) {
+        const cell = document.createElement('div');
+        if (i < names.length) {
+          cell.className = 'cell';
+          cell.dataset.on = 'false';
+          cell.innerHTML = `<div class="name">${names[i]}</div><div class="status">OFF</div>`;
+        } else {
+          cell.className = 'cell empty';
+        }
+        grid.appendChild(cell);
+      }
+      grid.dataset.built = '1';
+    }
+
+    let dragging = false;
+    let targetState = null;
+    const path = [];
+    const originals = new Map();
+    let lastCell = null;
+
+    function setCell(cell, on) {
+      if (!cell || cell.classList.contains('empty')) return;
+      cell.dataset.on = on ? 'true' : 'false';
+      cell.classList.toggle('on', on);
+      cell.querySelector('.status').textContent = on ? 'ON' : 'OFF';
+    }
+
+    function cellAt(x, y) {
+      const el = document.elementFromPoint(x, y);
+      if (!el) return null;
+      const c = el.closest('.cell');
+      if (!c || c.classList.contains('empty')) return null;
+      return c;
+    }
+
+    function enterCell(c) {
+      if (c === lastCell) return;
+      const idx = path.indexOf(c);
+      if (idx >= 0) {
+        for (let i = path.length - 1; i >= idx; i--) {
+          const cell = path[i];
+          setCell(cell, originals.get(cell));
+          originals.delete(cell);
+        }
+        path.length = idx;
+      } else {
+        originals.set(c, c.dataset.on === 'true');
+        setCell(c, targetState);
+        path.push(c);
+      }
+      lastCell = c;
+    }
+
+    function onStart(x, y) {
+      const c = cellAt(x, y);
+      if (!c) return;
+      dragging = true;
+      targetState = c.dataset.on !== 'true';
+      path.length = 0;
+      originals.clear();
+      lastCell = null;
+      enterCell(c);
+    }
+
+    function onMove(x, y) {
+      if (!dragging) return;
+      const c = cellAt(x, y);
+      if (!c) return;
+      enterCell(c);
+    }
+
+    function onEnd() {
+      dragging = false;
+      targetState = null;
+      path.length = 0;
+      originals.clear();
+      lastCell = null;
+    }
+
+    grid.addEventListener('pointerdown', e => { e.preventDefault(); onStart(e.clientX, e.clientY); });
+    document.addEventListener('pointermove', e => { if (dragging) onMove(e.clientX, e.clientY); });
+    document.addEventListener('pointerup', onEnd);
+    document.addEventListener('pointercancel', onEnd);
+
+    window.addEventListener('hashchange', render);
+    render();
+  </script>
 </body>
 
 </html>
