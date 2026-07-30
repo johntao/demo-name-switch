@@ -142,7 +142,6 @@
   <div id="qq">v26.5.21</div>
   <script>
     const SECRET = '#9527';
-    const STORE_KEY = 'name-switch-v1';
     const LONG_PRESS_MS = 500;
     // 超過這個位移就判定為「連刷開關」，同時把長按計時器讓掉
     const SWEEP_THRESHOLD = 16;
@@ -195,32 +194,20 @@
 
     function load() {
       const q = new URLSearchParams(location.search);
-      let o = decodeOrder(q.get('o'));
-      let s = decodeStates(q.get('s'));
-      if (!o && !s) {
-        try {
-          const raw = localStorage.getItem(STORE_KEY);
-          if (raw) {
-            const saved = JSON.parse(raw);
-            o = decodeOrder(saved.o);
-            s = decodeStates(saved.s);
-          }
-        } catch (e) { /* 無痕模式或資料損壞：用預設值 */ }
-      }
+      const o = decodeOrder(q.get('o'));
+      const s = decodeStates(q.get('s'));
       if (o) order = o;
       if (s) states = s;
     }
 
+    // 網址就是唯一的儲存位置：沒有查詢字串就是全新開始
     function save() {
       const o = encodeOrder(order);
       const s = encodeStates(states);
       try {
-        localStorage.setItem(STORE_KEY, JSON.stringify({ o, s }));
-      } catch (e) { /* 無痕模式：略過 */ }
-      try {
         // hash 是解鎖碼，必須保留，分享出去的連結才能直接開
         history.replaceState(null, '', `${location.pathname}?o=${o}&s=${s}${location.hash}`);
-      } catch (e) { /* file:// 之類的環境會擋 replaceState */ }
+      } catch (e) { /* file:// 之類的環境會擋 replaceState，此時只存在記憶體裡 */ }
     }
 
     /* ---------- 畫面 ---------- */
@@ -354,7 +341,7 @@
       sweepTarget = null;
       sweepPath.length = 0;
       sweepFrom.clear();
-      save();   // 整趟刷完才寫一次，中途不去動 localStorage 和網址
+      save();   // 整趟刷完才寫一次，中途不去動網址
     }
 
     /* ---------- 拖曳重排（編輯模式）---------- */
