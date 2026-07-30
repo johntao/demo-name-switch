@@ -144,7 +144,8 @@
     const SECRET = '#9527';
     const STORE_KEY = 'name-switch-v1';
     const LONG_PRESS_MS = 500;
-    const MOVE_TOLERANCE = 16;
+    // 超過這個位移就判定為「連刷開關」，同時把長按計時器讓掉
+    const SWEEP_THRESHOLD = 16;
 
     const names = ["順利", "宗佑", "書聿", "政儒", "宥呈", "慈憶", "庚翰", "股中", "奕閎", "玉莉", "敬耀", "翊誠", "俞萱", "柏亦", "長緯", "倫紳", "珮綺", "冀昕", "怡秀", "堯堯", "季橫"];
 
@@ -278,11 +279,17 @@
 
     /* ---------- 切換 ---------- */
 
+    function setState(cell, on) {
+      const idx = Number(cell.dataset.idx);
+      if (Number.isNaN(idx)) return;
+      states[idx] = !!on;
+      paint(cell);
+    }
+
     function toggle(cell) {
       const idx = Number(cell.dataset.idx);
       if (Number.isNaN(idx)) return;
-      states[idx] = !states[idx];
-      paint(cell);
+      setState(cell, !states[idx]);
       save();
     }
 
@@ -308,7 +315,49 @@
       document.body.classList.remove('editing');
     }
 
-    /* ---------- 拖曳重排 ---------- */
+    /* ---------- 拖曳連刷（一般模式）---------- */
+
+    let sweeping = false;
+    let sweepTarget = null;          // 這一趟要把經過的格子都刷成什麼
+    const sweepPath = [];            // 依序經過的格子
+    const sweepFrom = new Map();     // 每格進入前的原狀態，倒退時用來還原
+
+    function beginSweep(cell) {
+      sweeping = true;
+      // 起點格的反向狀態決定整趟的方向：從 OFF 起跑就是一路開，反之一路關
+      sweepTarget = !states[Number(cell.dataset.idx)];
+      sweepPath.length = 0;
+      sweepFrom.clear();
+      sweepTo(cell);
+    }
+
+    function sweepTo(cell) {
+      if (!cell || cell === sweepPath[sweepPath.length - 1]) return;
+      const at = sweepPath.indexOf(cell);
+      if (at >= 0) {
+        // 往回刷：把這格之後經過的都還原，所以刷過頭可以直接退回來
+        for (let i = sweepPath.length - 1; i > at; i--) {
+          const c = sweepPath[i];
+          setState(c, sweepFrom.get(c));
+          sweepFrom.delete(c);
+        }
+        sweepPath.length = at + 1;
+        return;
+      }
+      sweepFrom.set(cell, !!states[Number(cell.dataset.idx)]);
+      setState(cell, sweepTarget);
+      sweepPath.push(cell);
+    }
+
+    function endSweep() {
+      sweeping = false;
+      sweepTarget = null;
+      sweepPath.length = 0;
+      sweepFrom.clear();
+      save();   // 整趟刷完才寫一次，中途不去動 localStorage 和網址
+    }
+
+    /* ---------- 拖曳重排（編輯模式）---------- */
 
     let dragCell = null;
     let grabX = 0, grabY = 0;
@@ -382,12 +431,12 @@
         beginDrag(cell, e.clientX, e.clientY);
         return;
       }
-      press = { cell, x: e.clientX, y: e.clientY, longPressed: false };
+      // 按住不動 → 排序模式；按住後滑動 → 連刷開關；點一下放開 → 切單一格
+      press = { cell, x: e.clientX, y: e.clientY };
       press.timer = setTimeout(() => {
         const p = press;
-        p.longPressed = true;
         enterEdit();
-        beginDrag(p.cell, p.lx ?? p.x, p.ly ?? p.y);
+        beginDrag(p.cell, p.lx ?? p.x, p.ly ?? p.y);   // 會順手把 press 清掉
       }, LONG_PRESS_MS);
     });
 
@@ -397,22 +446,32 @@
         moveDragTo(e.clientX, e.clientY);
         return;
       }
+      if (sweeping) {
+        sweepTo(cellAt(e.clientX, e.clientY));
+        return;
+      }
       if (!press) return;
       press.lx = e.clientX;
       press.ly = e.clientY;
-      if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > MOVE_TOLERANCE) cancelPress();
+      if (Math.hypot(e.clientX - press.x, e.clientY - press.y) <= SWEEP_THRESHOLD) return;
+      const cell = press.cell;
+      cancelPress();          // 位移夠大就不再等長按，改判定為連刷
+      beginSweep(cell);
+      sweepTo(cellAt(e.clientX, e.clientY));
     });
 
     document.addEventListener('pointerup', () => {
       if (dragCell) { endDrag(); return; }
-      if (!press) return;
-      const { cell, longPressed } = press;
+      if (sweeping) { endSweep(); return; }
+      if (!press) return;     // 已轉為排序拖曳
+      const cell = press.cell;
       cancelPress();
-      if (!longPressed) toggle(cell);
+      toggle(cell);
     });
 
     document.addEventListener('pointercancel', () => {
       if (dragCell) endDrag();
+      if (sweeping) endSweep();
       cancelPress();
     });
 
