@@ -153,6 +153,7 @@
     #lower { grid-auto-rows: 72px; }
     #pick hr { width: calc(100% - 16px); margin: 4px 8px; border: 0; border-top: 2px solid #bbb; }
     .cell.done .status { color: #999; font-weight: 400; font-size: .85rem; white-space: nowrap; letter-spacing: 0; }
+    .cell.locked { background: #f0f0f0; color: #aaa; pointer-events: none; }
     .cell.suggest { border-color: #ffb300; }
     .cell.suggest .status { color: #ff8f00; }
     .cell.interviewer { background: #ffe0b2; border-color: #fb8c00; }
@@ -657,6 +658,7 @@
       const chosen = new Set([interviewer, ...interviewees]);
       let upper;
       let fresh = false;
+      let roundDone = false;
       if (!interviewer) {
         const last = lastInterviewer();
         const first = members.includes(last) ? [{ name: last, sub: '上次面試官', cls: 'suggest' }] : [];
@@ -666,10 +668,14 @@
         const picked = currentCycle(candidates);
         fresh = picked.size === 0;
         const left = candidates.filter(n => !chosen.has(n));
+        const notYet = left.filter(n => !picked.has(n));
         const done = left.filter(n => picked.has(n))
           .sort((a, b) => picked.get(a).localeCompare(picked.get(b)));   // 同一天的維持名單順序
-        upper = left.filter(n => !picked.has(n)).map(name => ({ name }))
-          .concat(done.map(name => ({ name, sub: picked.get(name), cls: 'done' })));
+        // 這一輪點過的人先停用；等還沒點過的人都點完（今天就跨進下一輪），或正在換面試官時才開放
+        roundDone = !notYet.length && done.length > 0;
+        const cls = roundDone || swapping ? 'done' : 'done locked';
+        upper = notYet.map(name => ({ name }))
+          .concat(done.map(name => ({ name, sub: picked.get(name), cls })));
       }
 
       // 上方格數固定為全體人數，名字移下去時版面不會跳動
@@ -684,7 +690,7 @@
 
       if (!interviewer) hintEl.textContent = '① 請點選面試官';
       else if (swapping) hintEl.textContent = '請點選新的面試官（再點一次面試官取消）';
-      else hintEl.textContent = `② 請點選受訪者${interviewees.length ? `（已選 ${interviewees.length} 位）` : ''}${fresh ? '・新的一輪' : ''}`;
+      else hintEl.textContent = `② 請點選受訪者${interviewees.length ? `（已選 ${interviewees.length} 位）` : ''}${fresh ? '・新的一輪' : ''}${roundDone ? '・本輪已點完' : ''}`;
     }
 
     upperEl.addEventListener('click', e => {
