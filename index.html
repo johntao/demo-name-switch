@@ -153,6 +153,7 @@
     #lower { grid-auto-rows: 72px; }
     #pick hr { width: calc(100% - 16px); margin: 4px 8px; border: 0; border-top: 2px solid #bbb; }
     .cell.done .status { color: #999; font-weight: 400; font-size: .85rem; white-space: nowrap; letter-spacing: 0; }
+    .cell.locked { background: #f0f0f0; color: #aaa; pointer-events: none; }
     .cell.suggest { border-color: #ffb300; }
     .cell.suggest .status { color: #ff8f00; }
     .cell.interviewer { background: #ffe0b2; border-color: #fb8c00; }
@@ -657,6 +658,7 @@
       const chosen = new Set([interviewer, ...interviewees]);
       let upper;
       let fresh = false;
+      let roundDone = false;
       if (!interviewer) {
         const last = lastInterviewer();
         const first = members.includes(last) ? [{ name: last, sub: '上次主持人', cls: 'suggest' }] : [];
@@ -666,10 +668,14 @@
         const picked = currentCycle(candidates);
         fresh = picked.size === 0;
         const left = candidates.filter(n => !chosen.has(n));
+        const notYet = left.filter(n => !picked.has(n));
         const done = left.filter(n => picked.has(n))
           .sort((a, b) => picked.get(a).localeCompare(picked.get(b)));   // 同一天的維持名單順序
-        upper = left.filter(n => !picked.has(n)).map(name => ({ name }))
-          .concat(done.map(name => ({ name, sub: picked.get(name), cls: 'done' })));
+        // 這一輪點過的人先停用；等還沒點過的人都點完（今天就跨進下一輪），或正在換主持人時才開放
+        roundDone = !notYet.length && done.length > 0;
+        const cls = roundDone || swapping ? 'done' : 'done locked';
+        upper = notYet.map(name => ({ name }))
+          .concat(done.map(name => ({ name, sub: picked.get(name), cls })));
       }
 
       // 上方格數固定為全體人數，名字移下去時版面不會跳動
@@ -684,10 +690,22 @@
 
       if (!interviewer) hintEl.textContent = '① 請點選主持人';
       else if (swapping) hintEl.textContent = '請點選新的主持人（再點一次主持人取消）';
-      else hintEl.textContent = `② 請點選訪談人${interviewees.length ? `（已選 ${interviewees.length} 位）` : ''}${fresh ? '・新的一輪' : ''}`;
+      else hintEl.textContent = `② 請點選訪談人${interviewees.length ? `（已選 ${interviewees.length} 位）` : ''}${fresh ? '・新的一輪' : ''}${roundDone ? '・本輪已點完' : ''}`;
     }
 
+    // 分頁從上週一直開著沒關時，today 還是舊的日期，直接存會蓋掉那天的紀錄；換日了就重新載入
+    function dayChanged() {
+      if (localDate(new Date()) === today) return false;
+      location.reload();
+      return true;
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') dayChanged();
+    });
+
     upperEl.addEventListener('click', e => {
+      if (dayChanged()) return;
       const c = e.target.closest('.cell[data-name]');
       if (!c) return;
       const name = c.dataset.name;
@@ -705,6 +723,7 @@
     });
 
     lowerEl.addEventListener('click', e => {
+      if (dayChanged()) return;
       const c = e.target.closest('.cell[data-name]');
       if (!c) return;
       const name = c.dataset.name;
