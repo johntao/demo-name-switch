@@ -814,7 +814,7 @@
     const pwInput = document.getElementById('pwInput');
     const loginBtn = document.querySelector('#loginForm button');
     // 密碼記在 localStorage（不是 cookie），從手動登入起算一週後失效，要重新輸入
-    const LOGIN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+    const LOGIN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
     function setBusy(busy) {
       pwInput.disabled = busy;
