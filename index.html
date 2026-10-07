@@ -15,7 +15,7 @@
       touch-action: none;
     }
     #app { display: none; flex: 1; }
-    body.unlocked #app { display: flex; }
+    body.unlocked #app { display: flex; flex-direction: column; min-width: 0; }
     .grid {
       flex: 1;
       display: grid;
@@ -127,30 +127,81 @@
       z-index: 30;
     }
     #toast.show { opacity: 1; }
-    #qq { position: fixed; bottom: 0; right: 0; }
+
+    /* 登入 */
+    #login { flex: 1; display: flex; align-items: center; justify-content: center; }
+    body.unlocked #login { display: none; }
+    #login form { display: flex; flex-direction: column; gap: 10px; width: min(280px, calc(100vw - 32px)); }
+    #login input, #login button { font: inherit; font-size: 1.1rem; padding: 10px 12px; border-radius: 8px; border: 1px solid #ccc; }
+    #login button { background: #4caf50; border-color: #4caf50; color: #fff; font-weight: 600; cursor: pointer; }
+    #loginMsg { color: #c62828; min-height: 1.4em; font-size: .95rem; }
+
+    /* 上方工具列：步驟提示、儲存狀態、新舊版切換 */
+    #top { display: flex; align-items: center; gap: 8px; padding: 6px 8px 2px; font-size: 1.1rem; }
+    #hint { flex: 1; font-weight: 600; min-width: 0; }
+    #status { color: #888; font-size: .95rem; white-space: nowrap; }
+    #status.error { color: #c62828; cursor: pointer; text-decoration: underline; }
+    #modeBtn { font: inherit; font-size: .85rem; border: 1px solid #ccc; background: #fff; border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+    #ver { color: #aaa; font-size: .75rem; }
+
+    #pick, #legacy { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    body.mode-legacy #pick, body:not(.mode-legacy) #legacy { display: none; }
+
+    /* 新版：上方候選名單、分隔線、下方已選名單 */
+    .pgrid { display: grid; gap: 4px; padding: 4px; }
+    #upper { flex: 1; min-height: 0; }
+    #lower { grid-auto-rows: 72px; }
+    #pick hr { width: calc(100% - 16px); margin: 4px 8px; border: 0; border-top: 2px solid #bbb; }
+    .cell.done .status { color: #999; font-weight: 400; font-size: .85rem; white-space: nowrap; letter-spacing: 0; }
+    .cell.suggest { border-color: #ffb300; }
+    .cell.suggest .status { color: #ff8f00; }
+    .cell.interviewer { background: #ffe0b2; border-color: #fb8c00; }
+    .cell.interviewer .status { color: #e65100; }
+    .cell.interviewer.swapping { outline: 3px dashed #e65100; outline-offset: -3px; }
   </style>
 </head>
 
 <body>
-  <div id="app"><div class="grid" id="grid"></div></div>
+  <div id="login">
+    <form id="loginForm">
+      <input type="password" id="pwInput" placeholder="密碼" autocomplete="current-password">
+      <button type="submit">登入</button>
+      <div id="loginMsg"></div>
+    </form>
+  </div>
+  <div id="app">
+    <div id="top">
+      <span id="hint"></span>
+      <span id="status"></span>
+      <button type="button" id="modeBtn"></button>
+      <span id="ver">v26.10.7</span>
+    </div>
+    <div id="pick">
+      <div class="pgrid" id="upper"></div>
+      <hr>
+      <div class="pgrid" id="lower"></div>
+    </div>
+    <div id="legacy"><div class="grid" id="grid"></div></div>
+  </div>
   <div id="bar">
     <button type="button" id="clearBtn">全部清除</button>
     <button type="button" id="shareBtn">複製連結</button>
     <button type="button" id="doneBtn" class="primary">完成</button>
   </div>
   <div id="toast"></div>
-  <div id="qq">v26.7.30</div>
   <script>
-    const SECRET = '#9527';
+    // Apps Script 部署後拿到的網址，見 README
+    const API_URL = 'REPLACE_WITH_APPS_SCRIPT_URL';
     const LONG_PRESS_MS = 500;
     // 超過這個位移就判定為「連刷開關」，同時把長按計時器讓掉
     const SWEEP_THRESHOLD = 16;
 
-    const names = ["順利", "宗佑", "政儒", "慈憶", "股中", "弈閎", "玉莉", "敬耀", "翊誠", "俞萱", "柏亦", "長緯", "倫紳", "珮綺", "冀昕", "怡秀", "竣筌", "季衡","裴璇"];
+    // 舊版（全員 ON/OFF）用的名單，登入後由試算表的 Members 帶入
+    let names = [];
 
     // order 是顯示順序（存 names 的索引）；states 一律以 names 的原始索引為 key
-    let order = names.map((_, i) => i);
-    let states = new Array(names.length).fill(false);
+    let order = [];
+    let states = [];
 
     const grid = document.getElementById('grid');
     const toast = document.getElementById('toast');
@@ -193,6 +244,8 @@
     }
 
     function load() {
+      order = names.map((_, i) => i);
+      states = new Array(names.length).fill(false);
       const q = new URLSearchParams(location.search);
       const o = decodeOrder(q.get('o'));
       const s = decodeStates(q.get('s'));
@@ -205,8 +258,7 @@
       const o = encodeOrder(order);
       const s = encodeStates(states);
       try {
-        // hash 是解鎖碼，必須保留，分享出去的連結才能直接開
-        history.replaceState(null, '', `${location.pathname}?o=${o}&s=${s}${location.hash}`);
+        history.replaceState(null, '', `${location.pathname}?o=${o}&s=${s}`);
       } catch (e) { /* file:// 之類的環境會擋 replaceState，此時只存在記憶體裡 */ }
     }
 
@@ -248,12 +300,6 @@
         grid.appendChild(cell);
       }
       builtCount = total;
-    }
-
-    function render() {
-      const unlocked = location.hash === SECRET;
-      document.body.classList.toggle('unlocked', unlocked);
-      if (unlocked) buildGrid();
     }
 
     let toastTimer = null;
@@ -467,7 +513,7 @@
     });
 
     window.addEventListener('resize', () => {
-      if (!document.body.classList.contains('unlocked')) return;
+      if (mode !== 'legacy') return;
       if (dragCell || cellCount() === builtCount) return;
       buildGrid();
     });
@@ -496,9 +542,303 @@
       }
     });
 
-    window.addEventListener('hashchange', render);
-    load();
-    render();
+    /* ====================================================================
+     * 新版：一次只點幾位受訪者，紀錄存在 Google 試算表
+     * ==================================================================== */
+
+    const upperEl = document.getElementById('upper');
+    const lowerEl = document.getElementById('lower');
+    const hintEl = document.getElementById('hint');
+    const statusEl = document.getElementById('status');
+    const modeBtn = document.getElementById('modeBtn');
+
+    let password = '';
+    let mode = 'pick';          // 'pick' 新版 | 'legacy' 舊版
+    let members = [];           // 在名單內的人，依 Members 分頁的列順序
+    let records = [];           // [{ date, interviewer, interviewee }]
+    const today = localDate(new Date());
+
+    // 今天這一場的狀態；一天一場，存檔時整批取代當天的列
+    let interviewer = null;
+    let interviewees = [];
+    let swapping = false;       // 點了面試官、正在等使用者點新的面試官
+
+    function localDate(d) {
+      const p = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+
+    function store(key, value) {
+      try {
+        if (value == null) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+      } catch (e) { /* 無痕模式之類會擋，下次重新輸入就好 */ }
+    }
+
+    function stored(key) {
+      try { return localStorage.getItem(key); } catch (e) { return null; }
+    }
+
+    // 不帶 Content-Type，瀏覽器會當成 text/plain 的簡單請求，不會觸發 Apps Script 回應不了的 CORS 預檢
+    async function api(payload) {
+      const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ ...payload, password }) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.error === 'unauthorized') { lock('密碼錯誤'); throw new Error('unauthorized'); }
+      if (!data.ok) throw new Error(data.error || 'failed');
+      return data;
+    }
+
+    /* ---------- 輪次：誰在這一輪已經被點過 ---------- */
+
+    // 從最舊的紀錄依序重播：這一輪點過的人放進 picked，
+    // 等所有候選人都點過一次（一輪結束）就清空重來；同一天跨輪時，被點第二次的人算進新的一輪。
+    // 回傳 Map(名字 → 這一輪被點的日期)；空的就是「全新一輪」。今天的紀錄不算，名單才不會邊點邊重排。
+    function currentCycle(candidates) {
+      const cand = new Set(candidates);
+      const days = new Map();
+      for (const r of records) {
+        if (r.date >= today || !cand.has(r.interviewee)) continue;
+        if (!days.has(r.date)) days.set(r.date, []);
+        days.get(r.date).push(r.interviewee);
+      }
+      let picked = new Map();
+      for (const date of [...days.keys()].sort()) {
+        const p = days.get(date);
+        if (candidates.every(n => picked.has(n) || p.includes(n))) {
+          const next = new Map();
+          for (const n of p) if (picked.has(n)) next.set(n, date);
+          picked = next;
+        } else {
+          for (const n of p) picked.set(n, date);
+        }
+      }
+      return picked;
+    }
+
+    // 最近一次（今天以前）的面試官，第一步把他排在第一格，通常點一下就好
+    function lastInterviewer() {
+      let last = null;
+      for (const r of records) if (r.date < today && (!last || r.date >= last.date)) last = r;
+      return last && last.interviewer;
+    }
+
+    /* ---------- 畫面 ---------- */
+
+    function columns() {
+      if (window.matchMedia('(min-width: 768px)').matches) return 5;
+      if (window.matchMedia('(orientation: landscape)').matches) return 6;
+      return 4;
+    }
+
+    function makeCell(item) {
+      const c = document.createElement('div');
+      if (!item) { c.className = 'cell empty'; return c; }
+      c.className = 'cell' + (item.cls ? ` ${item.cls}` : '');
+      c.dataset.name = item.name;
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = item.name;
+      const status = document.createElement('div');
+      status.className = 'status';
+      status.textContent = item.sub || '';
+      c.append(name, status);
+      return c;
+    }
+
+    function fill(el, items, slots, cols) {
+      el.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      el.replaceChildren(...items.map(makeCell));
+      for (let i = items.length; i < slots; i++) el.appendChild(makeCell(null));
+    }
+
+    function renderPick() {
+      const cols = columns();
+      const chosen = new Set([interviewer, ...interviewees]);
+      let upper;
+      let fresh = false;
+      if (!interviewer) {
+        const last = lastInterviewer();
+        const first = members.includes(last) ? [{ name: last, sub: '上次面試官', cls: 'suggest' }] : [];
+        upper = first.concat(members.filter(n => n !== last).map(name => ({ name })));
+      } else {
+        const candidates = members.filter(n => n !== interviewer);
+        const picked = currentCycle(candidates);
+        fresh = picked.size === 0;
+        const left = candidates.filter(n => !chosen.has(n));
+        const done = left.filter(n => picked.has(n))
+          .sort((a, b) => picked.get(a).localeCompare(picked.get(b)));   // 同一天的維持名單順序
+        upper = left.filter(n => !picked.has(n)).map(name => ({ name }))
+          .concat(done.map(name => ({ name, sub: picked.get(name), cls: 'done' })));
+      }
+
+      // 上方格數固定為全體人數，名字移下去時版面不會跳動
+      const rows = Math.max(1, Math.ceil(members.length / cols));
+      upperEl.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+      fill(upperEl, upper, rows * cols, cols);
+
+      const lower = [];
+      if (interviewer) lower.push({ name: interviewer, sub: '面試官', cls: 'interviewer' + (swapping ? ' swapping' : '') });
+      interviewees.forEach(name => lower.push({ name, sub: '受訪者', cls: 'on' }));
+      fill(lowerEl, lower, Math.max(1, Math.ceil(lower.length / cols)) * cols, cols);
+
+      if (!interviewer) hintEl.textContent = '① 請點選面試官';
+      else if (swapping) hintEl.textContent = '請點選新的面試官（再點一次面試官取消）';
+      else hintEl.textContent = `② 請點選受訪者${interviewees.length ? `（已選 ${interviewees.length} 位）` : ''}${fresh ? '・新的一輪' : ''}`;
+    }
+
+    upperEl.addEventListener('click', e => {
+      const c = e.target.closest('.cell[data-name]');
+      if (!c) return;
+      const name = c.dataset.name;
+      if (!interviewer) {
+        interviewer = name;               // 只有面試官還沒有紀錄可存，等點了受訪者才寫入
+      } else if (swapping) {
+        interviewer = name;               // 原面試官回到上方，受訪者保留
+        swapping = false;
+        queueSave();
+      } else {
+        interviewees.push(name);
+        queueSave();
+      }
+      renderPick();
+    });
+
+    lowerEl.addEventListener('click', e => {
+      const c = e.target.closest('.cell[data-name]');
+      if (!c) return;
+      const name = c.dataset.name;
+      if (name === interviewer) {
+        if (interviewees.length) swapping = !swapping;
+        else interviewer = null;          // 還沒點受訪者，直接退回第一步
+      } else if (swapping) {
+        // 換面試官時點下方的受訪者：他改當面試官，原面試官回到上方
+        interviewees = interviewees.filter(n => n !== name);
+        interviewer = name;
+        swapping = false;
+        queueSave();
+      } else {
+        interviewees = interviewees.filter(n => n !== name);
+        queueSave();
+      }
+      renderPick();
+    });
+
+    /* ---------- 自動存檔 ---------- */
+
+    // 每次送的都是今天的完整狀態，所以連點時只要送最新的一份；同時間只有一個請求在跑
+    let saving = false;
+    let pending = false;
+    let failed = false;
+
+    function setStatus(text, isError) {
+      statusEl.textContent = text;
+      statusEl.classList.toggle('error', !!isError);
+    }
+
+    function queueSave() {
+      pending = true;
+      pump();
+    }
+
+    async function pump() {
+      if (saving || !pending) return;
+      pending = false;
+      saving = true;
+      setStatus('儲存中…');
+      try {
+        await api({ action: 'saveDay', date: today, interviewer: interviewer || '', interviewees: [...interviewees] });
+        failed = false;
+      } catch (e) {
+        failed = true;
+      }
+      saving = false;
+      if (pending) pump();
+      else if (failed) setStatus('✗ 儲存失敗，點此重試', true);
+      else setStatus('✓ 已儲存');
+    }
+
+    statusEl.addEventListener('click', () => {
+      if (failed) queueSave();
+    });
+
+    window.addEventListener('beforeunload', e => {
+      if (saving || pending || failed) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    /* ---------- 模式切換 ---------- */
+
+    function setMode(m) {
+      mode = m === 'legacy' ? 'legacy' : 'pick';
+      store('mode', mode);
+      if (editing) exitEdit();
+      document.body.classList.toggle('mode-legacy', mode === 'legacy');
+      modeBtn.textContent = mode === 'legacy' ? '新版' : '舊版';
+      if (mode === 'legacy') {
+        hintEl.textContent = '';
+        buildGrid();
+      } else {
+        renderPick();
+      }
+    }
+
+    modeBtn.addEventListener('click', () => setMode(mode === 'legacy' ? 'pick' : 'legacy'));
+
+    window.addEventListener('resize', () => {
+      if (mode === 'pick' && document.body.classList.contains('unlocked')) renderPick();
+    });
+
+    /* ---------- 登入與載入 ---------- */
+
+    const loginMsg = document.getElementById('loginMsg');
+    const pwInput = document.getElementById('pwInput');
+
+    function lock(msg) {
+      store('pw', null);
+      document.body.classList.remove('unlocked');
+      loginMsg.textContent = msg || '';
+      pwInput.focus();
+    }
+
+    async function unlock(pw) {
+      password = pw;
+      loginMsg.textContent = '載入中…';
+      let data;
+      try {
+        data = await api({ action: 'load' });
+      } catch (e) {
+        if (e.message !== 'unauthorized') loginMsg.textContent = `載入失敗（${e.message}），請稍後再試`;
+        return;
+      }
+      store('pw', pw);
+      loginMsg.textContent = '';
+      members = data.members.filter(m => m.active).map(m => m.name);
+      records = data.records;
+      names = members;
+      load();   // 舊版：從查詢字串還原順序與狀態
+
+      // 重新整理或換裝置時，把今天已存的紀錄放回下方
+      const todays = records.filter(r => r.date === today);
+      if (todays.length) {
+        interviewer = todays[0].interviewer || null;
+        interviewees = [...new Set(todays.map(r => r.interviewee))].filter(n => n !== interviewer);
+        if (!interviewer) interviewees = [];
+      }
+
+      document.body.classList.add('unlocked');
+      setMode(stored('mode'));
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', e => {
+      e.preventDefault();
+      if (pwInput.value) unlock(pwInput.value);
+    });
+
+    if (API_URL.startsWith('REPLACE')) {
+      loginMsg.textContent = '尚未設定 API_URL（見 README）';
+    } else if (stored('pw')) {
+      unlock(stored('pw'));
+    }
   </script>
 </body>
 
