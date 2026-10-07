@@ -543,7 +543,7 @@
     });
 
     /* ====================================================================
-     * 新版：一次只點幾位受訪人，紀錄存在 Google 試算表
+     * 新版：一次只點幾位訪談人，紀錄存在 Google 試算表
      * ==================================================================== */
 
     const upperEl = document.getElementById('upper');
@@ -561,7 +561,7 @@
     // 今天這一場的狀態；一天一場，存檔時整批取代當天的列
     let interviewer = null;
     let interviewees = [];
-    let swapping = false;       // 點了訪談者、正在等使用者點新的訪談者
+    let swapping = false;       // 點了主持人、正在等使用者點新的主持人
 
     function localDate(d) {
       const p = n => String(n).padStart(2, '0');
@@ -616,7 +616,7 @@
       return picked;
     }
 
-    // 最近一次（今天以前）的訪談者，第一步把他排在第一格，通常點一下就好
+    // 最近一次（今天以前）的主持人，第一步把他排在第一格，通常點一下就好
     function lastInterviewer() {
       let last = null;
       for (const r of records) if (r.date < today && (!last || r.date >= last.date)) last = r;
@@ -659,7 +659,7 @@
       let fresh = false;
       if (!interviewer) {
         const last = lastInterviewer();
-        const first = members.includes(last) ? [{ name: last, sub: '上次訪談者', cls: 'suggest' }] : [];
+        const first = members.includes(last) ? [{ name: last, sub: '上次主持人', cls: 'suggest' }] : [];
         upper = first.concat(members.filter(n => n !== last).map(name => ({ name })));
       } else {
         const candidates = members.filter(n => n !== interviewer);
@@ -678,13 +678,13 @@
       fill(upperEl, upper, rows * cols, cols);
 
       const lower = [];
-      if (interviewer) lower.push({ name: interviewer, sub: '訪談者', cls: 'interviewer' + (swapping ? ' swapping' : '') });
-      interviewees.forEach(name => lower.push({ name, sub: '受訪人', cls: 'on' }));
+      if (interviewer) lower.push({ name: interviewer, sub: '主持人', cls: 'interviewer' + (swapping ? ' swapping' : '') });
+      interviewees.forEach(name => lower.push({ name, sub: '訪談人', cls: 'on' }));
       fill(lowerEl, lower, Math.max(1, Math.ceil(lower.length / cols)) * cols, cols);
 
-      if (!interviewer) hintEl.textContent = '① 請點選訪談者';
-      else if (swapping) hintEl.textContent = '請點選新的訪談者（再點一次訪談者取消）';
-      else hintEl.textContent = `② 請點選受訪人${interviewees.length ? `（已選 ${interviewees.length} 位）` : ''}${fresh ? '・新的一輪' : ''}`;
+      if (!interviewer) hintEl.textContent = '① 請點選主持人';
+      else if (swapping) hintEl.textContent = '請點選新的主持人（再點一次主持人取消）';
+      else hintEl.textContent = `② 請點選訪談人${interviewees.length ? `（已選 ${interviewees.length} 位）` : ''}${fresh ? '・新的一輪' : ''}`;
     }
 
     upperEl.addEventListener('click', e => {
@@ -692,9 +692,9 @@
       if (!c) return;
       const name = c.dataset.name;
       if (!interviewer) {
-        interviewer = name;               // 只有訪談者還沒有紀錄可存，等點了受訪人才寫入
+        interviewer = name;               // 只有主持人還沒有紀錄可存，等點了訪談人才寫入
       } else if (swapping) {
-        interviewer = name;               // 原訪談者回到上方，受訪人保留
+        interviewer = name;               // 原主持人回到上方，訪談人保留
         swapping = false;
         queueSave();
       } else {
@@ -710,9 +710,9 @@
       const name = c.dataset.name;
       if (name === interviewer) {
         if (interviewees.length) swapping = !swapping;
-        else interviewer = null;          // 還沒點受訪人，直接退回第一步
+        else interviewer = null;          // 還沒點訪談人，直接退回第一步
       } else if (swapping) {
-        // 換訪談者時點下方的受訪人：他改當訪談者，原訪談者回到上方
+        // 換主持人時點下方的訪談人：他改當主持人，原主持人回到上方
         interviewees = interviewees.filter(n => n !== name);
         interviewer = name;
         swapping = false;
