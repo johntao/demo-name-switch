@@ -693,7 +693,19 @@
       else hintEl.textContent = `② 請點選受訪者${interviewees.length ? `（已選 ${interviewees.length} 位）` : ''}${fresh ? '・新的一輪' : ''}${roundDone ? '・本輪已點完' : ''}`;
     }
 
+    // 分頁從上週一直開著沒關時，today 還是舊的日期，直接存會蓋掉那天的紀錄；換日了就重新載入
+    function dayChanged() {
+      if (localDate(new Date()) === today) return false;
+      location.reload();
+      return true;
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') dayChanged();
+    });
+
     upperEl.addEventListener('click', e => {
+      if (dayChanged()) return;
       const c = e.target.closest('.cell[data-name]');
       if (!c) return;
       const name = c.dataset.name;
@@ -711,6 +723,7 @@
     });
 
     lowerEl.addEventListener('click', e => {
+      if (dayChanged()) return;
       const c = e.target.closest('.cell[data-name]');
       if (!c) return;
       const name = c.dataset.name;
