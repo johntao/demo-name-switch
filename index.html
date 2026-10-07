@@ -134,6 +134,7 @@
     #login form { display: flex; flex-direction: column; gap: 10px; width: min(280px, calc(100vw - 32px)); }
     #login input, #login button { font: inherit; font-size: 1.1rem; padding: 10px 12px; border-radius: 8px; border: 1px solid #ccc; }
     #login button { background: #4caf50; border-color: #4caf50; color: #fff; font-weight: 600; cursor: pointer; }
+    #login input:disabled, #login button:disabled { opacity: .5; cursor: default; }
     #loginMsg { color: #c62828; min-height: 1.4em; font-size: .95rem; }
 
     /* 上方工具列：步驟提示、儲存狀態、新舊版切換 */
@@ -811,25 +812,45 @@
 
     const loginMsg = document.getElementById('loginMsg');
     const pwInput = document.getElementById('pwInput');
+    const loginBtn = document.querySelector('#loginForm button');
+    // 密碼記在 localStorage（不是 cookie），從手動登入起算一週後失效，要重新輸入
+    const LOGIN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
+    function setBusy(busy) {
+      pwInput.disabled = busy;
+      loginBtn.disabled = busy;
+    }
 
     function lock(msg) {
       store('pw', null);
+      store('pwAt', null);
       document.body.classList.remove('unlocked');
+      setBusy(false);
       loginMsg.textContent = msg || '';
       pwInput.focus();
     }
 
-    async function unlock(pw) {
+    // auto：用上次記住的密碼自動登入，不重新起算效期
+    async function unlock(pw, auto) {
       password = pw;
-      loginMsg.textContent = '載入中…';
+      setBusy(true);
+      loginMsg.textContent = auto ? '自動登入中…' : '登入中…';
       let data;
       try {
         data = await api({ action: 'load' });
       } catch (e) {
-        if (e.message !== 'unauthorized') loginMsg.textContent = `載入失敗（${e.message}），請稍後再試`;
+        if (e.message !== 'unauthorized') {
+          setBusy(false);
+          loginMsg.textContent = `載入失敗（${e.message}），請稍後再試`;
+        }
         return;
       }
-      store('pw', pw);
+      setBusy(false);
+      if (!auto) {
+        store('pw', pw);
+        store('pwAt', String(Date.now()));
+      }
+      pwInput.value = '';
       loginMsg.textContent = '';
       members = data.members.filter(m => m.active).map(m => m.name);
       records = data.records;
@@ -855,8 +876,11 @@
 
     if (API_URL.startsWith('REPLACE')) {
       loginMsg.textContent = '尚未設定 API_URL（見 README）';
-    } else if (stored('pw')) {
-      unlock(stored('pw'));
+    } else if (stored('pw') && Date.now() - Number(stored('pwAt')) < LOGIN_TTL_MS) {
+      unlock(stored('pw'), true);
+    } else {
+      store('pw', null);   // 過期，或是舊版只存了密碼沒存時間
+      store('pwAt', null);
     }
   </script>
 </body>
