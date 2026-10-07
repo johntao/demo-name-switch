@@ -192,7 +192,7 @@
   <div id="toast"></div>
   <script>
     // Apps Script 部署後拿到的網址，見 README
-    const API_URL = 'REPLACE_WITH_APPS_SCRIPT_URL';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbybLMFWzreAFjKeh1JFz74nggYevmoOcm9BSfJpkt5Y-I3ckjKtaRrIrs5Qz3vIrSi5AQ/exec';
     const LONG_PRESS_MS = 500;
     // 超過這個位移就判定為「連刷開關」，同時把長按計時器讓掉
     const SWEEP_THRESHOLD = 16;
@@ -544,7 +544,7 @@
     });
 
     /* ====================================================================
-     * 新版：一次只點幾位受訪者，紀錄存在 Google 試算表
+     * 新版：一次只點幾位訪談人，紀錄存在 Google 試算表
      * ==================================================================== */
 
     const upperEl = document.getElementById('upper');
@@ -562,7 +562,7 @@
     // 今天這一場的狀態；一天一場，存檔時整批取代當天的列
     let interviewer = null;
     let interviewees = [];
-    let swapping = false;       // 點了面試官、正在等使用者點新的面試官
+    let swapping = false;       // 點了主持人、正在等使用者點新的主持人
 
     function localDate(d) {
       const p = n => String(n).padStart(2, '0');
@@ -617,7 +617,7 @@
       return picked;
     }
 
-    // 最近一次（今天以前）的面試官，第一步把他排在第一格，通常點一下就好
+    // 最近一次（今天以前）的主持人，第一步把他排在第一格，通常點一下就好
     function lastInterviewer() {
       let last = null;
       for (const r of records) if (r.date < today && (!last || r.date >= last.date)) last = r;
@@ -661,7 +661,7 @@
       let roundDone = false;
       if (!interviewer) {
         const last = lastInterviewer();
-        const first = members.includes(last) ? [{ name: last, sub: '上次面試官', cls: 'suggest' }] : [];
+        const first = members.includes(last) ? [{ name: last, sub: '上次主持人', cls: 'suggest' }] : [];
         upper = first.concat(members.filter(n => n !== last).map(name => ({ name })));
       } else {
         const candidates = members.filter(n => n !== interviewer);
@@ -671,7 +671,7 @@
         const notYet = left.filter(n => !picked.has(n));
         const done = left.filter(n => picked.has(n))
           .sort((a, b) => picked.get(a).localeCompare(picked.get(b)));   // 同一天的維持名單順序
-        // 這一輪點過的人先停用；等還沒點過的人都點完（今天就跨進下一輪），或正在換面試官時才開放
+        // 這一輪點過的人先停用；等還沒點過的人都點完（今天就跨進下一輪），或正在換主持人時才開放
         roundDone = !notYet.length && done.length > 0;
         const cls = roundDone || swapping ? 'done' : 'done locked';
         upper = notYet.map(name => ({ name }))
@@ -684,13 +684,13 @@
       fill(upperEl, upper, rows * cols, cols);
 
       const lower = [];
-      if (interviewer) lower.push({ name: interviewer, sub: '面試官', cls: 'interviewer' + (swapping ? ' swapping' : '') });
-      interviewees.forEach(name => lower.push({ name, sub: '受訪者', cls: 'on' }));
+      if (interviewer) lower.push({ name: interviewer, sub: '主持人', cls: 'interviewer' + (swapping ? ' swapping' : '') });
+      interviewees.forEach(name => lower.push({ name, sub: '訪談人', cls: 'on' }));
       fill(lowerEl, lower, Math.max(1, Math.ceil(lower.length / cols)) * cols, cols);
 
-      if (!interviewer) hintEl.textContent = '① 請點選面試官';
-      else if (swapping) hintEl.textContent = '請點選新的面試官（再點一次面試官取消）';
-      else hintEl.textContent = `② 請點選受訪者${interviewees.length ? `（已選 ${interviewees.length} 位）` : ''}${fresh ? '・新的一輪' : ''}${roundDone ? '・本輪已點完' : ''}`;
+      if (!interviewer) hintEl.textContent = '① 請點選主持人';
+      else if (swapping) hintEl.textContent = '請點選新的主持人（再點一次主持人取消）';
+      else hintEl.textContent = `② 請點選訪談人${interviewees.length ? `（已選 ${interviewees.length} 位）` : ''}${fresh ? '・新的一輪' : ''}${roundDone ? '・本輪已點完' : ''}`;
     }
 
     // 分頁從上週一直開著沒關時，today 還是舊的日期，直接存會蓋掉那天的紀錄；換日了就重新載入
@@ -710,9 +710,9 @@
       if (!c) return;
       const name = c.dataset.name;
       if (!interviewer) {
-        interviewer = name;               // 只有面試官還沒有紀錄可存，等點了受訪者才寫入
+        interviewer = name;               // 只有主持人還沒有紀錄可存，等點了訪談人才寫入
       } else if (swapping) {
-        interviewer = name;               // 原面試官回到上方，受訪者保留
+        interviewer = name;               // 原主持人回到上方，訪談人保留
         swapping = false;
         queueSave();
       } else {
@@ -729,9 +729,9 @@
       const name = c.dataset.name;
       if (name === interviewer) {
         if (interviewees.length) swapping = !swapping;
-        else interviewer = null;          // 還沒點受訪者，直接退回第一步
+        else interviewer = null;          // 還沒點訪談人，直接退回第一步
       } else if (swapping) {
-        // 換面試官時點下方的受訪者：他改當面試官，原面試官回到上方
+        // 換主持人時點下方的訪談人：他改當主持人，原主持人回到上方
         interviewees = interviewees.filter(n => n !== name);
         interviewer = name;
         swapping = false;
